@@ -1,0 +1,99 @@
+import glob
+import numpy as np
+import pandas 
+import random
+from datetime import datetime
+
+def datapoints(csv_name):
+
+  df = pandas.read_csv(csv_name,
+            names=['Stock-ID', 'Timestamp','Stock-Price'])
+  
+
+  data = (df['Timestamp'].to_numpy()).tolist()
+
+  for i in data:
+    try:
+      datetime.strptime(str(i), "%d-%m-%Y")
+    except ValueError:
+      raise ValueError("Incorrect data format, should be DD-MM-YYYY")
+      print("List of incorrect dates: " + data[i])
+
+
+  data_subset = []
+
+  for i in range(len(data) - 29):
+      data_subset.append(data[i])
+      
+  random_date = random.choice(data_subset)
+  columns_list = df.columns
+  output_set = pandas.DataFrame(columns = columns_list)
+  index_to_start = np.where(df == random_date)[0][0]
+
+  for i, row in df.iloc[index_to_start:,:].iterrows():
+    output_set.loc[len(output_set)] = row
+    if len(output_set) == 30:
+     break
+    
+  return output_set
+
+
+
+
+def generate_outliers(datapoints):
+
+
+  if datapoints.empty:
+    raise Exception("DataFrame must not be empty")
+
+  data = (datapoints['Stock-Price'].to_numpy()).tolist()
+
+  try:
+    mean = np.mean(data)
+    std = np.std(data)
+  except ZeroDivisionError:
+    print("Cannot divide by zero.")
+
+  threshold = 2
+  outlier = []
+  for i in data:
+     z = (i-mean)/std
+     if z > threshold:
+        outlier.append(i)
+
+     elif z < -threshold:
+        outlier.append(i)
+  
+  datapoints['Mean'] = mean
+  datapoints['Stock price – Mean'] = datapoints['Stock-Price'] - mean
+  datapoints['% deviation'] = ((datapoints['Stock-Price'] - mean) * 100) / mean
+
+  mask = datapoints['Stock-Price'].isin(outlier)
+  outliers_datapoints = datapoints[mask]
+
+  if outliers_datapoints.empty:
+    print("No outliers found in the dataset")
+  else:
+    return outliers_datapoints
+
+
+
+
+# Main code execution - START
+
+    path = "/content/TEST/LSE/"
+    files = glob.glob(path + "/*.csv")
+    
+    if len(files) == 0:
+      print('Please make sure that the CSV file is located in the right path, or that the path, file name and extension are correct')
+    else:
+      for filename in files: 
+         df = pandas.DataFrame(generate_outliers(datapoints(filename)))
+         df.to_csv(path + filename.split("/")[-1].split('.')[0] + '_Outliers.csv', index=False)
+    
+
+# Main code execution - FINISH
+    
+
+
+
